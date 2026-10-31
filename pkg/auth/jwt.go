@@ -20,38 +20,65 @@ type Claims struct {
 	jwt.RegisteredClaims
 }
 
-// TODO: Добавить структуру JWTManager с полями secretKey []byte и ttl time.Duration
-// Реализовать конструктор NewJWTManager(secretKey string, ttlHours int) *JWTManager
 type JWTManager struct {
 	secretKey []byte
 	ttl       time.Duration
 }
 
-// TODO: Реализовать конструктор NewJWTManager
-// Параметры: secretKey string, ttlHours int
-// Вернуть: *JWTManager с инициализированными полями
+// NewJWTManager создаёт менеджер JWT
 func NewJWTManager(secretKey string, ttlHours int) *JWTManager {
-	// TODO: реализовать
-	return nil
+	return &JWTManager{
+		secretKey: []byte(secretKey),
+		ttl:       time.Duration(ttlHours) * time.Hour,
+	}
 }
 
-// TODO: Реализовать метод GenerateToken(userID int, email, username string) (string, time.Time, error)
-// - Создать Claims со сроком действия = now + m.ttl
-// - Установить IssuedAt, NotBefore, ExpiresAt, Issuer, Subject в Claims
-// - Подписать токен методом HS256 секретным ключом
-// - Вернуть (tokenString, expiresAt, nil) или ("", time.Time{}, error)
+// GenerateToken создаёт подписанный JWT
 func (m *JWTManager) GenerateToken(userID int, email, username string) (string, time.Time, error) {
-	// TODO: реализовать
-	return "", time.Time{}, nil
+	now := time.Now()
+	expiresAt := now.Add(m.ttl)
+
+	claims := Claims{
+		UserID:   userID,
+		Email:    email,
+		Username: username,
+		RegisteredClaims: jwt.RegisteredClaims{
+			IssuedAt:  jwt.NewNumericDate(now),
+			NotBefore: jwt.NewNumericDate(now),
+			ExpiresAt: jwt.NewNumericDate(expiresAt),
+			Issuer:    "blog-api",
+			Subject:   email,
+		},
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	signed, err := token.SignedString(m.secretKey)
+	if err != nil {
+		return "", time.Time{}, err
+	}
+	return signed, expiresAt, nil
 }
 
-// TODO: Реализовать метод ValidateToken(tokenString string) (*Claims, error)
-// - Распарсить токен с проверкой подписи через jwt.ParseWithClaims
-// - Извлечь Claims из токена
-// - Проверить что token.Valid == true и claims != nil
-// - Проверить что время истечения еще не наступило (ExpiresAt.Time > now)
-// - Вернуть claims или ошибку (ErrInvalidToken, ErrExpiredToken)
+// ValidateToken проверяет токен и возвращает Claims
 func (m *JWTManager) ValidateToken(tokenString string) (*Claims, error) {
-	// TODO: реализовать
-	return nil, nil
+	claims := &Claims{}
+	token, err := jwt.ParseWithClaims(tokenString, claims, func(t *jwt.Token) (interface{}, error) {
+		if _, ok := t.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, ErrInvalidToken
+		}
+		return m.secretKey, nil
+	})
+	if err != nil {
+		if errors.Is(err, jwt.ErrTokenExpired) {
+			return nil, ErrExpiredToken
+		}
+		return nil, ErrInvalidToken
+	}
+	if token == nil || !token.Valid {
+		return nil, ErrInvalidToken
+	}
+	if claims.ExpiresAt == nil || claims.ExpiresAt.Time.Before(time.Now()) {
+		return nil, ErrExpiredToken
+	}
+	return claims, nil
 }

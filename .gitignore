@@ -41,3 +41,16 @@ temp/
 # Build output
 dist/
 build/
+
+# Создаётся при запуске (JSON-хранилище)
+/data/
+*.json
+
+# Логи
+log.txt
+*.log
+
+# Собранный бинарник (если собирали локально)
+/api
+api
+*.exe

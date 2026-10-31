@@ -9,33 +9,46 @@ import (
 	"github.com/go-playground/validator/v10"
 )
 
-// ErrorResponse представляет структуру ошибки в ответе
 type ErrorResponse struct {
 	Error   string `json:"error"`
 	Message string `json:"message"`
 }
 
-// TODO: Реализовать WriteError(w http.ResponseWriter, message string, statusCode int)
-// 1. Установить Content-Type: application/json
-// 2. Установить статус код через WriteHeader()
-// 3. Закодировать ErrorResponse в JSON используя json.NewEncoder()
-// ErrorResponse должен содержать Error = http.StatusText(statusCode) и Message = message
 func WriteError(w http.ResponseWriter, message string, statusCode int) {
-	// TODO: реализовать
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(statusCode)
+	_ = json.NewEncoder(w).Encode(ErrorResponse{
+		Error:   http.StatusText(statusCode),
+		Message: message,
+	})
 }
 
-// TODO: Реализовать HandleServiceError(w http.ResponseWriter, err error)
-// 1. Проверить тип ошибки используя errors.Is()
-// 2. Для каждого типа ошибки из apperrors вернуть нужный HTTP статус:
-//    - ErrUserAlreadyExists -> 409 Conflict
-//    - ErrInvalidCredentials -> 401 Unauthorized
-//    - ErrPostNotFound -> 404 Not Found
-//    - ErrCommentNotFound -> 404 Not Found
-//    - ErrForbidden -> 403 Forbidden
-//    - ErrUnauthorized -> 401 Unauthorized
-// 3. Проверить validator.ValidationErrors -> 400 Bad Request
-// 4. Для других ошибок -> 500 Internal Server Error
-// 5. Использовать WriteError() для отправки ответа с нужным сообщением
 func HandleServiceError(w http.ResponseWriter, err error) {
-	// TODO: реализовать
+	switch {
+	case errors.Is(err, apperrors.ErrUserAlreadyExists):
+		WriteError(w, err.Error(), http.StatusConflict)
+	case errors.Is(err, apperrors.ErrInvalidCredentials):
+		WriteError(w, err.Error(), http.StatusUnauthorized)
+	case errors.Is(err, apperrors.ErrUserNotFound):
+		WriteError(w, err.Error(), http.StatusNotFound)
+	case errors.Is(err, apperrors.ErrPostNotFound):
+		WriteError(w, err.Error(), http.StatusNotFound)
+	case errors.Is(err, apperrors.ErrCommentNotFound):
+		WriteError(w, err.Error(), http.StatusNotFound)
+	case errors.Is(err, apperrors.ErrForbidden):
+		WriteError(w, err.Error(), http.StatusForbidden)
+	case errors.Is(err, apperrors.ErrUnauthorized):
+		WriteError(w, err.Error(), http.StatusUnauthorized)
+	case errors.Is(err, apperrors.ErrInvalidPostID):
+		WriteError(w, err.Error(), http.StatusBadRequest)
+	case errors.Is(err, apperrors.ErrValidation):
+		WriteError(w, err.Error(), http.StatusBadRequest)
+	default:
+		var ve validator.ValidationErrors
+		if errors.As(err, &ve) {
+			WriteError(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		WriteError(w, "internal server error", http.StatusInternalServerError)
+	}
 }

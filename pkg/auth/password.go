@@ -12,28 +12,43 @@ var (
 	ErrPasswordTooShort = errors.New("password is too short")
 )
 
-// TODO: Реализовать HashPassword(password string) (string, error)
-// - Проверить что пароль не пустой, вернуть ErrEmptyPassword если пусто
-// - Использовать bcrypt.GenerateFromPassword с bcrypt.DefaultCost
-// - Вернуть хешированный пароль как string или ошибку
+// HashPassword хеширует пароль через bcrypt
 func HashPassword(password string) (string, error) {
-	// TODO: реализовать
-	return "", nil
+	if password == "" {
+		return "", ErrEmptyPassword
+	}
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return "", err
+	}
+	return string(hash), nil
 }
 
-// TODO: Реализовать CheckPassword(password, hash string) bool
-// - Использовать bcrypt.CompareHashAndPassword для проверки пароля и хеша
-// - Вернуть true если пароль совпадает, false если не совпадает или ошибка
+// CheckPassword сравнивает пароль с хешем
 func CheckPassword(password, hash string) bool {
-	// TODO: реализовать
-	return false
+	return bcrypt.CompareHashAndPassword([]byte(hash), []byte(password)) == nil
 }
 
-// TODO: Реализовать ValidatePasswordStrength(password string) error (опционально)
-// - Проверить минимальную длину (8 символов)
-// - Проверить наличие различных типов символов (заглавные, строчные, цифры, спецсимволы)
-// - Вернуть ошибку если пароль не соответствует требованиям
+// ValidatePasswordStrength проверяет минимальные требования к паролю
 func ValidatePasswordStrength(password string) error {
-	// TODO: реализовать (опционально)
+	if len(password) < 8 {
+		return ErrPasswordTooShort
+	}
+	var hasUpper, hasLower, hasDigit, hasSpecial bool
+	for _, r := range password {
+		switch {
+		case unicode.IsUpper(r):
+			hasUpper = true
+		case unicode.IsLower(r):
+			hasLower = true
+		case unicode.IsDigit(r):
+			hasDigit = true
+		case unicode.IsPunct(r) || unicode.IsSymbol(r):
+			hasSpecial = true
+		}
+	}
+	if !hasUpper || !hasLower || !hasDigit || !hasSpecial {
+		return errors.New("password must contain uppercase, lowercase, digit and special character")
+	}
 	return nil
 }

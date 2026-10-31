@@ -1,33 +1,34 @@
-# Build stage
-FROM golang:1.24.5-alpine AS builder
+# ---------- build ----------
+FROM golang:1.26-alpine AS builder
 
 WORKDIR /app
 
-# Copy go.mod and go.sum
-COPY go.mod go.sum ./
+RUN apk add --no-cache git
 
-# Download dependencies
+COPY go.mod go.sum ./
 RUN go mod download
 
-# Copy source code
 COPY . .
 
-# Build the application
-RUN CGO_ENABLED=0 GOOS=linux go build -o api ./cmd/api/main.go
+# Точка входа — ./api/main.go, бинарник кладём в /app/bin/api
+RUN CGO_ENABLED=0 GOOS=linux go build -o /app/bin/api ./api/main.go
 
-# Runtime stage
-FROM alpine:latest
+# ---------- runtime ----------
+FROM alpine:3.20
 
 WORKDIR /app
 
-# Copy migrations from builder
+RUN apk add --no-cache ca-certificates tzdata
+
+# Копируем именно бинарник из /app/bin/api в /app/api
+COPY --from=builder /app/bin/api /app/api
+
+# Миграции нужны только для PostgreSQL-ветки; безопасно копировать
 COPY --from=builder /app/migrations ./migrations
 
-# Copy built application from builder
-COPY --from=builder /app/api .
+RUN mkdir -p /app/data
+ENV DATA_DIR=/app/data
+ENV LOGS_FILE=/app/log.txt
 
-# Expose port
 EXPOSE 8080
-
-# Run application
-CMD ["./api"]
+CMD ["/app/api"]

@@ -2,8 +2,7 @@ package model
 
 import (
 	"time"
-
-	"github.com/go-playground/validator/v10"
+	//"github.com/go-playground/validator/v10"
 )
 
 // User представляет модель пользователя в системе

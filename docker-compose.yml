@@ -18,25 +18,49 @@ services:
       timeout: 5s
       retries: 5
 
-  # TODO: Добавить сервис приложения app
-  # app:
-  #   build: .
-  #   container_name: blog_api
-  #   ports:
-  #     - "8080:8080"
-  #   environment:
-  #     DB_HOST: db
-  #     DB_PORT: 5432
-  #     DB_USER: postgres
-  #     DB_PASSWORD: postgres
-  #     DB_NAME: blog_db
-  #     DB_SSLMODE: disable
-  #     JWT_SECRET: your-secret-key
-  #     SERVER_HOST: 0.0.0.0
-  #     SERVER_PORT: 8080
-  #   depends_on:
-  #     db:
-  #       condition: service_healthy
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: blog_api
+    ports:
+      - "8080:8080"
+    environment:
+      SERVER_HOST: 0.0.0.0
+      SERVER_PORT: 8080
+
+      # Параметры БД (используются PostgreSQL-веткой; JSON-ветка их игнорирует)
+      DB_HOST: db
+      DB_PORT: 5432
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      DB_NAME: blog_db
+      DB_SSLMODE: disable
+
+      # JWT
+      JWT_SECRET: your-secret-key-change-me
+      JWT_EXPIRY_HOURS: 24
+
+      # Пути для JSON-хранилища и логов внутри контейнера
+      DATA_DIR: /app/data
+      LOGS_FILE: /app/log.txt
+
+      # Окружение
+      ENV: production
+    volumes:
+      # Персистентное хранение JSON-файлов и log.txt между перезапусками
+      - app_data:/app/data
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/api/health || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
 
 volumes:
   postgres_data:
+  app_data:

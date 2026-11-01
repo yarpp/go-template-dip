@@ -31,7 +31,7 @@
 
 ```
 template_project/
-├── cmd/api/
+├── api/
 │   └── main.go                 # Точка входа приложения
 ├── internal/
 │   ├── handler/                # HTTP обработчики (handlers)
@@ -49,6 +49,7 @@ template_project/
 │   │   └── comment_storage.go
 │   └── logger/                 # Event logger (логирование в файл)
 │       └── event_logger.go
+|
 ├── pkg/
 │   └── auth/                   # Утилиты аутентификации
 │       ├── jwt.go              # JWT токены
@@ -101,7 +102,7 @@ go mod download
 
 ```bash
 # Запустить приложение локально
-go run cmd/api/main.go
+go run api/main.go
 
 # Приложение будет доступно на http://localhost:8080
 ```
@@ -483,7 +484,7 @@ go mod download
 go run cmd/api/main.go
 
 # Собрать приложение
-go build -o api ./cmd/api/main.go
+go build -o api ./api/main.go
 ./api
 
 # Запустить в Docker

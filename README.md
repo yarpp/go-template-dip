@@ -30,39 +30,79 @@
 ## Структура проекта
 
 ```
-template_project/
+go-template-dip/
 ├── api/
-│   └── main.go                 # Точка входа приложения
+│   └── main.go                     # Точка входа приложения (./api/main.go)
+│
 ├── internal/
-│   ├── handler/                # HTTP обработчики (handlers)
-│   │   ├── auth_handler.go
-│   │   ├── post_handler.go
-│   │   └── comment_handler.go
-│   ├── middleware/             # HTTP middleware (auth, logging)
-│   │   ├── auth.go
-│   │   └── logging.go
-│   ├── model/                  # Модели данных (структуры)
-│   │   └── models.go
-│   ├── storage/                # Работа с JSON файлами
-│   │   ├── user_storage.go
-│   │   ├── post_storage.go
-│   │   └── comment_storage.go
-│   └── logger/                 # Event logger (логирование в файл)
-│       └── event_logger.go
-|
+│   ├── handler/                    # HTTP-обработчики (транспортный слой)
+│   │   ├── auth_handler.go         # POST /api/register, POST /api/login
+│   │   ├── post_handler.go         # POST/GET /api/posts, GET /api/posts/{id}
+│   │   ├── comment_handler.go      # POST/GET /api/posts/{postId}/comments
+│   │   └── utils.go                # WriteError, HandleServiceError, ErrorResponse
+│   │
+│   ├── middleware/                 # HTTP middleware
+│   │   ├── auth.go                 # AuthMiddleware: RequireAuth, OptionalAuth, context helpers
+│   │   ├── logging.go              # Logger, Recovery, CORS, responseWriter
+│   │   └── utils.go                # ToMiddleware (адаптер под chi)
+│   │
+│   ├── model/                      # Модели данных и DTO
+│   │   └── models.go               # User, Post, Comment, *Request, *Response, Validate(), ToResponse()
+│   │
+│   ├── service/                    # Бизнес-логика (use-case слой)
+│   │   ├── user_service.go         # Register, Login, GetByID, GetByEmail
+│   │   ├── user_service_interface.go
+│   │   ├── post_service.go         # Create, GetByID, GetAll, GetByAuthor
+│   │   ├── post_service_interface.go
+│   │   ├── comment_service.go      # Create, GetByPost
+│   │   └── comment_service_interface.go
+│   │
+│   ├── repository/                 # Слой доступа к данным
+│   │   ├── interfaces.go           # UserRepository, PostRepository, CommentRepository
+│   │   ├── user_repo.go            # PostgreSQL-реализация UserRepository
+│   │   ├── post_repo.go            # PostgreSQL-реализация PostRepository
+│   │   └── comment_repo.go         # PostgreSQL-реализация CommentRepository
+│   │
+│   ├── storage/                    # JSON-хранилище (альтернатива БД)
+│   │   ├── storage.go              # atomicWrite, loadJSON, ErrNotFound
+│   │   ├── records.go              # UserRecord, PostRecord, CommentRecord
+│   │   ├── user_storage.go         # UserStore: Create, GetByID, GetByEmail
+│   │   ├── post_storage.go         # PostStore: Create, GetByID, GetAll, GetByAuthor
+│   │   └── comment_storage.go      # CommentStore: Create, GetByPost
+│   │
+│   ├── database/                   # PostgreSQL-подключение и миграции (если используете БД)
+│   │   ├── init.go                 # NewPostgresDB, GetDSN, Close, TestConnection
+│   │   └── migrate.go              # Migrate: прогон *.sql из migrations/
+│   │
+│   ├── errors/
+│   │   └── apperrors/
+│   │       └── errors.go           # ErrUnauthorized, ErrPostNotFound, ErrInvalidCredentials, ...
+│   │
+│   └── logger/                     # Event logger (асинхронная запись в файл)
+│       └── event_logger.go         # NewEventLogger, LogEvent, Start, Stop, worker
+│
 ├── pkg/
-│   └── auth/                   # Утилиты аутентификации
-│       ├── jwt.go              # JWT токены
-│       └── password.go         # Хеширование паролей (bcrypt)
-├── data/                       # JSON файлы с данными
+│   └── auth/                       # Утилиты аутентификации
+│       ├── jwt.go                  # JWTManager: GenerateToken, ValidateToken, Claims
+│       └── password.go             # HashPassword, CheckPassword, ValidatePasswordStrength
+│
+├── migrations/                     # SQL-миграции (для PostgreSQL-ветки)
+│   ├── 001_init_schema.sql
+│   ├── 002_add_foreign_keys.sql
+│   └── 003_create_indexes.sql
+│
+├── data/                           # JSON-файлы с данными (создаются при запуске, в .gitignore)
 │   ├── users.json
 │   ├── posts.json
 │   └── comments.json
-├── logs.txt                    # Логи событий (создается при запуске)
-├── .env.example                # Пример конфигурации
-├── docker-compose.yml          # Docker Compose
-├── Dockerfile                  # Docker образ
-└── go.mod                      # Зависимости проекта
+│
+├── log.txt                         # Логи событий (создаётся при запуске, в .gitignore)
+├── .env.example                    # Пример конфигурации
+├── .gitignore                      # Исключает data/, log.txt, api
+├── docker-compose.yml              # Docker Compose (db + app)
+├── Dockerfile                      # Многостадийный Docker-образ
+├── README.md                       # Инструкция по запуску и описание эндпоинтов
+└── go.mod                          # Зависимости проекта (+ go.sum)
 ```
 
 ## Технологический стек
@@ -181,7 +221,7 @@ docker-compose down
 - `Stop()` - остановка логера при завершении приложения
 - `worker()` - горутина, которая записывает логи в файл с задержкой
 
-#### 6. **Главная функция** - `cmd/api/main.go`
+#### 6. **Главная функция** - `api/main.go`
 
 Инициализируйте:
 - Загрузку переменных окружения (.env)
